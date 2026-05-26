@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>EV Laden v1.5</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap');
+  :root {
+    --bg:#f0ede8; --card:#fff; --green:#1a6b3a; --green-light:#e8f5ee;
+    --red:#b91c1c; --red-light:#fef2f2; --orange:#c2410c; --orange-light:#fff7ed;
+    --text:#1a1a1a; --muted:#888; --border:#e0dcd6;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body { font-family:'Space Mono',monospace; background:var(--bg); color:var(--text); min-height:100vh; padding:20px 16px 40px; }
+
+  /* SETUP SCHERM */
+  #setupScreen {
+    display:none; position:fixed; top:0; left:0; right:0; bottom:0;
+    background:var(--bg); z-index:9999; padding:30px 20px; overflow-y:auto;
+  }
+  .setup-title { font-family:'Bebas Neue',sans-serif; font-size:38px; margin-bottom:4px; }
+  .setup-title span { color:var(--green); }
+  .setup-sub { font-size:10px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:24px; }
+  .setup-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:16px; }
+  .setup-field { margin-bottom:16px; }
+  .setup-field:last-child { margin-bottom:0; }
+  .setup-field label { display:block; font-size:11px; font-weight:700; margin-bottom:4px; }
+  .setup-field small { display:block; font-size:9px; color:var(--muted); margin-bottom:8px; }
+  .setup-field input {
+    width:100%; background:var(--bg); border:2px solid var(--border); border-radius:10px;
+    padding:12px 14px; font-family:'Space Mono',monospace; font-size:15px; color:var(--text); outline:none;
+  }
+  .setup-field input:focus { border-color:var(--green); }
+  .setup-info { background:var(--green-light); border:1px solid var(--green); border-radius:10px; padding:12px 14px; font-size:10px; color:var(--green); line-height:1.7; margin-bottom:20px; }
+  .btn-setup { width:100%; padding:18px; background:var(--green); color:white; border:none; border-radius:14px; font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:2px; cursor:pointer; }
+
+  /* HOOFD APP */
+  header { text-align:center; margin-bottom:20px; padding-top:6px; }
+  .title { font-family:'Bebas Neue',sans-serif; font-size:50px; letter-spacing:2px; line-height:1; }
+  .title span { color:var(--green); }
+  .subtitle { font-size:10px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-top:3px; }
+  .version { font-size:9px; color:#bbb; font-family:'Space Mono',monospace; margin-top:2px; }
+  .charger-badge { display:inline-block; background:var(--text); color:var(--bg); font-size:10px; letter-spacing:2px; padding:3px 10px; border-radius:3px; margin-top:6px; }
+  .setup-btn { display:block; margin:8px auto 0; background:var(--green); border:none; color:white; font-size:11px; font-weight:700; padding:8px 16px; border-radius:8px; cursor:pointer; font-family:'Space Mono',monospace; }
+
+  /* PRIJS BANNER */
+  .price-banner { border-radius:14px; padding:14px 16px; margin-bottom:12px; border:1px solid var(--border); background:var(--card); }
+  .price-banner.cheap { background:var(--green-light); border-color:var(--green); }
+  .price-banner.expensive { background:var(--red-light); border-color:var(--red); }
+  .price-banner-inner { display:flex; align-items:center; justify-content:space-between; }
+  .price-now { font-family:'Bebas Neue',sans-serif; font-size:42px; line-height:1; }
+  .price-now.neg { color:var(--green); }
+  .price-now.low { color:var(--orange); }
+  .price-now.high { color:var(--red); }
+  .price-meta { text-align:right; font-size:10px; color:var(--muted); line-height:1.8; }
+  .price-meta strong { display:block; font-size:12px; color:var(--text); }
+  .price-sub { font-size:10px; color:var(--muted); margin-top:3px; }
+
+  /* GRAFIEK */
+  .chart-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:12px; }
+  .chart-label { font-size:10px; text-transform:uppercase; letter-spacing:2px; color:var(--muted); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+  .chart-bars { display:flex; align-items:flex-end; gap:2px; height:80px; }
+  .bar-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; height:100%; justify-content:flex-end; position:relative; }
+  .bar-pos { width:100%; border-radius:3px 3px 0 0; min-height:2px; }
+  .bar-neg { width:100%; border-radius:0 0 3px 3px; min-height:2px; background:var(--green); opacity:.85; }
+  .bar-lbl { font-size:7px; color:var(--muted); }
+  .bar-col.now .bar-pos, .bar-col.now .bar-neg { outline:2px solid var(--text); outline-offset:1px; }
+  .bar-col.star .bar-pos, .bar-col.star .bar-neg { outline:2px solid var(--green); outline-offset:1px; }
+  .bar-tt { position:absolute; bottom:100%; left:50%; transform:translateX(-50%); background:var(--text); color:var(--bg); font-size:9px; padding:3px 7px; border-radius:4px; white-space:nowrap; display:none; z-index:10; margin-bottom:3px; }
+  .bar-col:hover .bar-tt { display:block; }
+  .refresh-ico { background:none; border:none; cursor:pointer; color:var(--muted); font-size:14px; }
+
+  /* STATUS */
+  .status-bar { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:11px 14px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; }
+  .status-dot { width:9px; height:9px; border-radius:50%; background:var(--muted); display:inline-block; margin-right:7px; }
+  .status-dot.on { background:var(--green); animation:blink 1.5s infinite; }
+  .status-dot.off { background:var(--red); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .status-text { font-size:11px; display:flex; align-items:center; }
+  .status-time { font-size:10px; color:var(--muted); }
+
+  /* KNOPPEN */
+  .btn-group { display:flex; flex-direction:column; gap:10px; margin-bottom:12px; }
+  .btn-big { display:block; width:100%; padding:20px; border-radius:16px; border:none; font-family:'Bebas Neue',sans-serif; font-size:34px; letter-spacing:2px; cursor:pointer; text-align:center; text-decoration:none; transition:transform .1s; }
+  .btn-big:active { transform:scale(.97); }
+  .btn-big .btn-sub { display:block; font-family:'Space Mono',monospace; font-size:9px; letter-spacing:1px; opacity:.75; margin-top:2px; }
+  .btn-start { background:var(--green); color:white; box-shadow:0 4px 18px rgba(26,107,58,.3); }
+  .btn-stop { background:var(--red); color:white; box-shadow:0 4px 18px rgba(185,28,28,.25); }
+
+  /* KAARTEN */
+  .scard { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:12px; }
+  .slabel { font-size:10px; text-transform:uppercase; letter-spacing:2px; color:var(--muted); margin-bottom:10px; }
+  .btn-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; }
+  .btn-opt { padding:11px 4px; border-radius:10px; border:2px solid var(--border); background:var(--bg); font-family:'Bebas Neue',sans-serif; font-size:20px; color:var(--text); cursor:pointer; text-align:center; text-decoration:none; display:block; transition:all .15s; }
+  .btn-opt .opt-sub { display:block; font-family:'Space Mono',monospace; font-size:7px; color:var(--muted); margin-top:1px; }
+  .btn-opt.active { background:var(--green); border-color:var(--green); color:white; }
+  .btn-opt.active .opt-sub { color:rgba(255,255,255,.7); }
+  .cheap-info { margin-top:10px; font-size:10px; color:var(--green); line-height:1.7; }
+
+  /* EXTRA */
+  .extra-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .btn-extra { padding:13px 8px; border-radius:10px; border:2px solid var(--border); background:var(--bg); font-family:'Space Mono',monospace; font-size:10px; font-weight:700; color:var(--text); cursor:pointer; text-align:center; text-decoration:none; display:block; transition:all .15s; line-height:1.4; }
+  .btn-extra .ext-icon { font-size:17px; display:block; margin-bottom:3px; }
+  .btn-extra .ext-sub { font-size:8px; color:var(--muted); font-weight:400; display:block; margin-top:2px; }
+  .btn-extra:active { transform:scale(.96); }
+  .btn-extra.green { border-color:var(--green); background:var(--green-light); color:var(--green); }
+  .btn-extra.orange { border-color:var(--orange); background:var(--orange-light); color:var(--orange); }
+
+  /* LOG */
+  .log-list { list-style:none; }
+  .log-item { font-size:10px; padding:4px 0; border-bottom:1px solid var(--border); display:flex; gap:7px; }
+  .log-item:last-child { border-bottom:none; }
+  .log-item .lt { color:var(--text); min-width:40px; }
+  .log-item.ok .lm { color:var(--green); }
+  .log-item.err .lm { color:var(--red); }
+  .log-item.warn .lm { color:var(--orange); }
+  .log-item.info .lm { color:var(--muted); }
+
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--text); color:var(--bg); font-size:11px; padding:9px 18px; border-radius:30px; transition:transform .3s; white-space:nowrap; z-index:100; pointer-events:none; }
+  .toast.show { transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ SETUP SCHERM ═══════════════ -->
+<div id="setupScreen">
+  <div class="setup-title">EV <span>Setup</span></div>
+  <div class="setup-sub">Eenmalig instellen</div>
+
+  <div class="setup-card">
+    <div class="setup-field">
+      <label>Serienummer lader</label>
+      <small>Staat op de lader, begint met FA</small>
+      <input id="setupSerial" type="text" placeholder="FA710053" maxlength="12" autocomplete="off">
+    </div>
+    <div class="setup-field">
+      <label>PIN code</label>
+      <small>Staat in de AccelEV app onder instellingen</small>
+      <input id="setupPin" type="password" placeholder="••••••" maxlength="10">
+    </div>
+  </div>
+
+  <div class="setup-info">
+    🔒 Je gegevens worden alleen opgeslagen op jouw eigen telefoon. Ze staan niet in de code en worden nooit naar andere servers verstuurd.
+  </div>
+
+  <button class="btn-setup" onclick="saveSetup()">OPSLAAN &amp; STARTEN</button>
+</div>
+
+<!-- ═══════════════ HOOFD APP ═══════════════ -->
+<header>
+  <div class="title">EV <span>Laden</span></div>
+  <div class="subtitle">Magnum 2-fase · Zonneplan tarieven</div>
+  <div class="version">v1.5</div>
+  <div class="charger-badge" id="chargerId">—</div><br>
+  <button class="setup-btn" onclick="openSetup()">⚙ Serienummer &amp; PIN instellen</button>
+</header>
+
+<div class="price-banner" id="priceBanner">
+  <div class="price-banner-inner">
+    <div>
+      <div class="price-now" id="priceNow">—</div>
+      <div class="price-sub" id="priceSub">laden...</div>
+    </div>
+    <div class="price-meta">
+      <strong id="priceAdvice">—</strong>
+      <span id="priceNext">—</span><br>
+      <span id="priceLow">laagste: —</span>
+    </div>
+  </div>
+</div>
+
+<div class="chart-card">
+  <div class="chart-label">
+    Uurprijzen vandaag (Zonneplan)
+    <button class="refresh-ico" onclick="loadPrices()">↻</button>
+  </div>
+  <div class="chart-bars" id="chartBars"><span style="font-size:11px;color:var(--muted)">Laden...</span></div>
+</div>
+
+<div class="status-bar">
+  <div class="status-text"><span class="status-dot" id="dot"></span><span id="statusText">Onbekend</span></div>
+  <div class="status-time" id="statusTime">—</div>
+</div>
+
+<div class="btn-group">
+  <button class="btn-big btn-start" onclick="doAction('start=true&current='+currentAmp+'&ack=1','Start laden op '+currentAmp+'A')">
+    ⚡ START LADEN
+    <span class="btn-sub" id="startSub">op 10A · ~4.6 kW (2-fase)</span>
+  </button>
+  <button class="btn-big btn-stop" onclick="doAction('stop=true&ack=1','Stop laden')">
+    ■ STOP LADEN
+    <span class="btn-sub">lader uitschakelen</span>
+  </button>
+</div>
+
+<div class="scard">
+  <div class="slabel">Hoeveel uur laden?</div>
+  <div class="btn-grid" id="hoursGrid">
+    <button class="btn-opt" onclick="setHours(1,this)">1u<span class="opt-sub">1 uur</span></button>
+    <button class="btn-opt active" onclick="setHours(2,this)">2u<span class="opt-sub">2 uur</span></button>
+    <button class="btn-opt" onclick="setHours(3,this)">3u<span class="opt-sub">3 uur</span></button>
+    <button class="btn-opt" onclick="setHours(4,this)">4u<span class="opt-sub">4 uur</span></button>
+  </div>
+  <div class="cheap-info" id="cheapInfo"></div>
+</div>
+
+<div class="scard">
+  <div class="slabel">Laadstroom</div>
+  <div class="btn-grid">
+    <button class="btn-opt" onclick="setAmp(6,this)">6A<span class="opt-sub">2.8 kW</span></button>
+    <button class="btn-opt" onclick="setAmp(8,this)">8A<span class="opt-sub">3.7 kW</span></button>
+    <button class="btn-opt active" onclick="setAmp(10,this)">10A<span class="opt-sub">4.6 kW</span></button>
+    <button class="btn-opt" onclick="setAmp(16,this)">16A<span class="opt-sub">7.4 kW</span></button>
+  </div>
+</div>
+
+<div class="scard">
+  <div class="slabel">Extra functies</div>
+  <div class="extra-grid">
+    <button class="btn-extra green" onclick="doAction('gridm=on&ack=1','Grid monitoring AAN')">
+      <span class="ext-icon">☀️</span>Grid Monitor AAN<span class="ext-sub">laden op PV-overschot</span>
+    </button>
+    <button class="btn-extra" onclick="doAction('gridm=off&ack=1','Grid monitoring UIT')">
+      <span class="ext-icon">⊘</span>Grid Monitor UIT<span class="ext-sub">vaste stroom</span>
+    </button>
+    <button class="btn-extra orange" onclick="doAction('batcare=on&ack=1','BatteryCare AAN')">
+      <span class="ext-icon">🔋</span>BatteryCare AAN<span class="ext-sub">stop op 80%</span>
+    </button>
+    <button class="btn-extra" onclick="doAction('batcare=off&ack=1','BatteryCare UIT')">
+      <span class="ext-icon">⊘</span>BatteryCare UIT<span class="ext-sub">volledig laden</span>
+    </button>
+  </div>
+</div>
+
+<div class="scard">
+  <div class="slabel" style="margin-bottom:8px">Log</div>
+  <ul class="log-list" id="logList">
+    <li class="log-item info"><span class="lt">—</span><span class="lm">Nog geen acties</span></li>
+  </ul>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API_TOKEN = '562f6d36542846adef323082ebb093d2';
+const ACCELEV_BASE = 'http://server.evtun.com:8091/api.php';
+let currentAmp = 10;
+let loadHours = 2;
+let prices = [];
+
+// ── Credentials ───────────────────────────────────────────────────
+function getSerial() { return localStorage.getItem('ev_serial') || ''; }
+function getPin()    { return localStorage.getItem('ev_pin') || ''; }
+
+function openSetup() {
+  document.getElementById('setupSerial').value = getSerial();
+  document.getElementById('setupPin').value = getPin();
+  document.getElementById('setupScreen').style.display = 'block';
+}
+
+function saveSetup() {
+  const s = document.getElementById('setupSerial').value.trim();
+  const p = document.getElementById('setupPin').value.trim();
+  if (!s || !p) { alert('Vul beide velden in'); return; }
+  localStorage.setItem('ev_serial', s);
+  localStorage.setItem('ev_pin', p);
+  document.getElementById('chargerId').textContent = s;
+  document.getElementById('setupScreen').style.display = 'none';
+  addLog(ts(), 'Instellingen opgeslagen: ' + s, 'ok');
+  showToast('✓ Opgeslagen');
+}
+
+// ── AccelEV ───────────────────────────────────────────────────────
+function doAction(params, label) {
+  const serial = getSerial();
+  const pin = getPin();
+  if (!serial || !pin) {
+    openSetup();
+    showToast('Vul eerst serienummer en PIN in');
+    return;
+  }
+  const url = `${ACCELEV_BASE}?charger=${serial}&pin=${pin}&${params}`;
+  const win = window.open(url, '_blank');
+  if (win) setTimeout(() => { try { win.close(); } catch(e){} }, 3000);
+
+  const isStart = params.includes('start=true');
+  const isStop  = params.includes('stop=true');
+  if (isStart) { document.getElementById('dot').className = 'status-dot on'; document.getElementById('statusText').textContent = `Laden · ${currentAmp}A`; }
+  else if (isStop) { document.getElementById('dot').className = 'status-dot off'; document.getElementById('statusText').textContent = 'Gestopt'; }
+  document.getElementById('statusTime').textContent = ts();
+  addLog(ts(), label, 'ok');
+  showToast('✓ ' + label);
+}
+
+// ── Prijzen ───────────────────────────────────────────────────────
+async function loadPrices() {
+  const target = 'https://enever.nl/apiv3/stroomprijs_vandaag.php?token=' + API_TOKEN;
+  const proxies = [
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+    u => `https://thingproxy.freeboard.io/fetch/${u}`,
+  ];
+  for (let i = 0; i < proxies.length; i++) {
+    try {
+      const r = await fetch(proxies[i](target));
+      if (!r.ok) continue;
+      const text = await r.text();
+      let j;
+      try { const w = JSON.parse(text); j = w.contents ? JSON.parse(w.contents) : w; } catch { continue; }
+      if (!j.data) continue;
+      prices = j.data.map(d => ({ hour: new Date(d.datum).getHours(), zp: parseFloat(d.prijsZP), raw: parseFloat(d.prijs) }));
+      renderChart();
+      updateBanner();
+      updateCheapInfo();
+      addLog(ts(), 'Tarieven geladen', 'ok');
+      return;
+    } catch(e) {}
+  }
+  addLog(ts(), 'Tarieven ophalen mislukt', 'err');
+}
+
+// ── Grafiek ───────────────────────────────────────────────────────
+function getCheapHours(n) {
+  return [...prices].sort((a,b) => a.raw - b.raw).slice(0,n).map(p=>p.hour).sort((a,b)=>a-b);
+}
+
+function renderChart() {
+  const wrap = document.getElementById('chartBars');
+  wrap.innerHTML = '';
+  if (!prices.length) return;
+  const now = new Date().getHours();
+  const maxP = Math.max(...prices.map(p=>p.raw));
+  const minP = Math.min(...prices.map(p=>p.raw));
+  const range = maxP - minP || 1;
+  const posR = maxP / range;
+  const negR = Math.abs(minP) / range;
+  const H = 80;
+  const cheap = getCheapHours(loadHours);
+
+  prices.forEach(p => {
+    const col = document.createElement('div');
+    col.className = 'bar-col' + (p.hour===now?' now':'') + (cheap.includes(p.hour)?' star':'');
+    const ct = (p.zp*100).toFixed(1);
+    const tt = document.createElement('div');
+    tt.className = 'bar-tt';
+    tt.textContent = `${p.hour}:00 · ${ct}ct` + (cheap.includes(p.hour)?' ★':'');
+
+    if (p.raw >= 0) {
+      const ph = Math.round((p.raw/range)*H);
+      const bar = document.createElement('div');
+      bar.className = 'bar-pos';
+      bar.style.height = Math.max(ph,2)+'px';
+      bar.style.background = p.raw<0.06?'#f59e0b':p.raw>0.15?'#b91c1c':'#e97316';
+      bar.style.opacity = p.hour<now?'0.4':'1';
+      const sp = document.createElement('div');
+      sp.style.height = Math.round(negR*H)+'px';
+      col.appendChild(tt); col.appendChild(bar); col.appendChild(sp);
+    } else {
+      const nh = Math.round((Math.abs(p.raw)/range)*H);
+      const ps = document.createElement('div');
+      ps.style.height = Math.round(posR*H)+'px';
+      const bar = document.createElement('div');
+      bar.className = 'bar-neg';
+      bar.style.height = Math.max(nh,2)+'px';
+      bar.style.opacity = p.hour<now?'0.4':'1';
+      col.appendChild(tt); col.appendChild(ps); col.appendChild(bar);
+    }
+    const lbl = document.createElement('div');
+    lbl.className = 'bar-lbl';
+    lbl.textContent = p.hour%4===0?p.hour:'';
+    col.appendChild(lbl);
+    wrap.appendChild(col);
+  });
+}
+
+function updateBanner() {
+  const now = new Date().getHours();
+  const cur = prices.find(p=>p.hour===now);
+  if (!cur) return;
+  const ct = (cur.zp*100).toFixed(1);
+  const el = document.getElementById('priceNow');
+  el.textContent = ct+' ct';
+  el.className = 'price-now '+(cur.raw<0?'neg':cur.raw<0.10?'low':'high');
+  document.getElementById('priceSub').textContent = `Zonneplan · ${now}:00–${now+1}:00`;
+  const banner = document.getElementById('priceBanner');
+  banner.className = 'price-banner'+(cur.raw<0.08?' cheap':cur.raw>0.15?' expensive':'');
+  document.getElementById('priceAdvice').textContent = cur.raw<0?'✓ Gratis! Laad nu':cur.raw<0.08?'✓ Goedkoop — laad nu':cur.raw<0.15?'~ Gemiddeld tarief':'✗ Duur — wacht even';
+  const next = prices.find(p=>p.hour===now+1);
+  if (next) document.getElementById('priceNext').textContent = `→ ${now+1}:00: ${(next.zp*100).toFixed(1)} ct`;
+  const cheap = [...prices].sort((a,b)=>a.raw-b.raw)[0];
+  document.getElementById('priceLow').textContent = `laagste: ${cheap.hour}:00 (${(cheap.zp*100).toFixed(1)} ct)`;
+}
+
+function updateCheapInfo() {
+  const hours = getCheapHours(loadHours);
+  if (!hours.length) return;
+  const now = new Date().getHours();
+  const lines = hours.map(h => {
+    const p = prices.find(x=>x.hour===h);
+    const ct = p?(p.zp*100).toFixed(1)+' ct':'';
+    return `${h}:00${h<now?' (al geweest)':''} · ${ct}`;
+  });
+  const cost = hours.reduce((s,h)=>{const p=prices.find(x=>x.hour===h);return s+(p?p.zp*currentAmp*2*230/1000:0);},0);
+  document.getElementById('cheapInfo').innerHTML = `★ Goedkoopste ${loadHours} uur:<br>${lines.join('<br>')}<br>Geschatte kosten: €${cost.toFixed(2)}`;
+}
+
+// ── Knoppen ───────────────────────────────────────────────────────
+function setHours(h, el) {
+  loadHours = h;
+  document.querySelectorAll('#hoursGrid .btn-opt').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  renderChart(); updateCheapInfo();
+}
+
+function setAmp(a, el) {
+  currentAmp = a;
+  document.querySelectorAll('.btn-grid .btn-opt').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  const kw = (2*a*230/1000).toFixed(1);
+  document.getElementById('startSub').textContent = `op ${a}A · ~${kw} kW (2-fase)`;
+  updateCheapInfo();
+}
+
+// ── Hulp ──────────────────────────────────────────────────────────
+function ts() { const n=new Date(); return n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0'); }
+
+function addLog(t, msg, type) {
+  const list = document.getElementById('logList');
+  if (list.children.length===1 && list.children[0].querySelector('.lt').textContent==='—') list.innerHTML='';
+  const li = document.createElement('li');
+  li.className=`log-item ${type}`;
+  li.innerHTML=`<span class="lt">${t}</span><span class="lm">${msg}</span>`;
+  list.prepend(li);
+  if (list.children.length>25) list.lastChild.remove();
+}
+
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ── Init ──────────────────────────────────────────────────────────
+const savedSerial = getSerial();
+if (savedSerial) {
+  document.getElementById('chargerId').textContent = savedSerial;
+} else {
+  // Geen gegevens — toon setup scherm direct
+  document.getElementById('setupScreen').style.display = 'block';
+}
+addLog(ts(), 'App v1.5 gestart', 'ok');
+loadPrices();
+setInterval(updateBanner, 60000);
+setInterval(loadPrices, 3600000);
+</script>
+</body>
+</html>
